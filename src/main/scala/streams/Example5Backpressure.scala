@@ -1,13 +1,12 @@
 package streams
 
 import java.nio.file.Paths
+import java.security.MessageDigest
 
 import akka.actor.ActorSystem
 import akka.pattern.after
-import akka.stream.scaladsl._
-import java.security.MessageDigest
-
 import akka.stream.alpakka.file.scaladsl.FileTailSource
+import akka.stream.scaladsl._
 import akka.util.ByteString
 
 import scala.concurrent.ExecutionContext.Implicits._
@@ -15,37 +14,14 @@ import scala.concurrent.Future
 import scala.concurrent.duration._
 import scala.util.{Failure, Success}
 
-object Main extends App {
+object Example5Backpressure extends App {
   implicit val akka = ActorSystem()
 
   val lotstohash = Paths.get("lotstohash")
 
-  val graph =
-    Source(List.tabulate(10)(identity))
-      .map(_ * 10)
-      .toMat(Sink.fold(0)(_ + _))(Keep.right)
-
-//  graph.run()
-//    .onComplete {
-//      case Success(result) =>
-//        println(result)
-//      case Failure(e) =>
-//        println(s"Failed due to ${e.getMessage}")
-//    }
-
-  val badTabulatedSource =
-    Source(List.tabulate(10000000)(identity))
-      .map(_.toString)
-
   val tabulatedSource =
     Source.fromIterator(() => (1 to 100000).toIterator)
       .map(_.toString)
-
-  // file source
-  val fileSource =
-    FileIO.fromPath(lotstohash)
-      .via(Framing.delimiter(ByteString("\n"), 256, true))
-      .map(_.utf8String)
 
   val fileTailSource =
     FileTailSource.lines(
@@ -53,11 +29,6 @@ object Main extends App {
       maxLineSize = 8192,
       pollingInterval = 250.millis
     )
-
-//  Read from file and hash
-//  tabulatedSource
-//    .mapAsync(2)(slowHash)
-//    .runWith(Sink.foreach(println))
 
 //  Store to file
   tabulatedSource
@@ -67,7 +38,6 @@ object Main extends App {
     .runWith(FileIO.toPath(lotstohash))
 
 //  Tail consumer
-
   Thread.sleep(1000)
   fileTailSource
     .runWith(Sink.foreach(hash => println(s"Reading from file $hash")))
